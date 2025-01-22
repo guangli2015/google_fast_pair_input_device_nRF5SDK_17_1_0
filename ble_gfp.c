@@ -47,6 +47,7 @@
 #include "nrf_crypto_ecdh.h"
 #include "nrf_crypto_error.h"
 #include "nrf_crypto_hash.h"
+#include "nrf_queue.h"
 #define NRF_LOG_MODULE_NAME ble_gfp
 #if BLE_GFP_CONFIG_LOG_ENABLED
 #define NRF_LOG_LEVEL       BLE_GFP_CONFIG_LOG_LEVEL
@@ -57,6 +58,7 @@
 #endif // BLE_GFP_CONFIG_LOG_ENABLED
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
+#define ACCOUNT_KEYS_COUNT 5
 /** Length of ECDH public key (512 bits = 64 bytes). */
 #define FP_CRYPTO_ECDH_PUBLIC_KEY_LEN		64U
 /** Length of AES-128 block (128 bits = 16 bytes). */
@@ -99,6 +101,14 @@ enum fp_msg_type {
 	FP_MSG_ACTION_REQ               = 0x10,
 };
 
+typedef struct  {
+	uint8_t account_key[FP_CRYPTO_AES128_BLOCK_LEN];
+} account_key_t;
+
+NRF_QUEUE_DEF(account_key_t, account_key_queue, ACCOUNT_KEYS_COUNT, NRF_QUEUE_MODE_OVERFLOW);
+
+//struct account_keys account_key_arr[ACCOUNT_KEYS_COUNT];
+
 static uint8_t anti_spoofing_priv_key[FP_REG_DATA_ANTI_SPOOFING_PRIV_KEY_LEN]={0x52 , 0x7a , 0x21 , 0xfa , 0x7c , 0x9c , 0x2b , 0xf6 , 0x49 , 0xee , 0x4d , 0xdd , 0x1e , 0xc7 , 0x5c , 0x36 , 0x98 , 0x8f , 0xd5 , 0x27 , 0xce , 0xcb , 0x43 , 0xff , 0x2f , 0x1e , 0x57 , 0x8b , 0x1c , 0x98 , 0xa2 , 0x2b};
 
 struct msg_kbp_req_data {
@@ -130,7 +140,57 @@ struct msg_seekers_passkey {
 };
 
 static uint8_t  Anti_Spoofing_AES_Key[NRF_CRYPTO_HASH_SIZE_SHA256];
-//function
+//function********************************************************************
+static void testqueue()
+{
+ ret_code_t err_code;
+    account_key_t data1;
+data1.account_key[0]=11;
+     err_code = nrf_queue_push(&account_key_queue,&data1);
+    APP_ERROR_CHECK(err_code);
+
+        account_key_t data2;
+data2.account_key[0]=22;
+     err_code = nrf_queue_push(&account_key_queue,&data2);
+    APP_ERROR_CHECK(err_code);
+
+            account_key_t data3;
+data3.account_key[0]=33;
+     err_code = nrf_queue_push(&account_key_queue,&data3);
+    APP_ERROR_CHECK(err_code);
+
+            account_key_t data4;
+data4.account_key[0]=44;
+     err_code = nrf_queue_push(&account_key_queue,&data4);
+    APP_ERROR_CHECK(err_code);
+
+            account_key_t data5;
+data5.account_key[0]=55;
+     err_code = nrf_queue_push(&account_key_queue,&data5);
+    APP_ERROR_CHECK(err_code);
+
+                account_key_t data7;
+data7.account_key[0]=88;
+     err_code = nrf_queue_push(&account_key_queue,&data7);
+    APP_ERROR_CHECK(err_code);
+
+                    account_key_t data8;
+data8.account_key[0]=99;
+     err_code = nrf_queue_push(&account_key_queue,&data8);
+    APP_ERROR_CHECK(err_code);
+
+
+account_key_t data6[5];
+
+        err_code = nrf_queue_read(&account_key_queue,data6,5);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
+
+    
+}
 static  void gfp_memcpy_swap(void *dst, const void *src, size_t length)
 {
 	uint8_t *pdst = (uint8_t *)dst;
@@ -145,6 +205,7 @@ static  void gfp_memcpy_swap(void *dst, const void *src, size_t length)
 		*pdst++ = *psrc--;
 	}
 }
+
 //crypto
 static void print_array(uint8_t const * p_string, size_t size)
 {
@@ -681,12 +742,41 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
     }
         else if ((p_evt_write->handle == p_gfp->account_key_handles.value_handle) )
     {
-        //evt.type                  = BLE_GFP_EVT_RX_DATA;
-        //evt.params.rx_data.p_data = p_evt_write->data;
-        //evt.params.rx_data.length = p_evt_write->len;
 
-        //p_gfp->data_handler(&evt);
-         NRF_LOG_INFO("account_key_handles################################\n");
+        NRF_LOG_INFO("account_key_handles################################\n");
+        nrf_crypto_aes_info_t const * p_ecb_info_accountkey;
+   
+        nrf_crypto_aes_context_t      ecb_decr_ctx_accountkey;
+        p_ecb_info_accountkey = &g_nrf_crypto_aes_ecb_128_info;
+        size_t      len_out_accountkey;
+        uint8_t raw_req_accountkey[FP_CRYPTO_AES128_BLOCK_LEN];
+        err_code = nrf_crypto_aes_init(&ecb_decr_ctx_accountkey,
+                                  p_ecb_info_accountkey,
+                                  NRF_CRYPTO_DECRYPT);
+        if(NRF_SUCCESS != err_code)
+        {
+          NRF_LOG_ERROR("nrf_crypto_aes_init err %x\n",err_code);
+        }
+
+        /* Set encryption and decryption key */
+
+        err_code = nrf_crypto_aes_key_set(&ecb_decr_ctx_accountkey, Anti_Spoofing_AES_Key);
+        if(NRF_SUCCESS != err_code)
+        {
+          NRF_LOG_ERROR("nrf_crypto_aes_key_set err %x\n",err_code);
+        }
+
+        /* Decrypt blocks */
+        len_out_accountkey = sizeof(raw_req_accountkey);
+        err_code = nrf_crypto_aes_finalize(&ecb_decr_ctx_accountkey,
+                                      (uint8_t *)p_evt_write->data,
+                                      FP_CRYPTO_AES128_BLOCK_LEN,
+                                      (uint8_t *)raw_req_accountkey,
+                                      &len_out_accountkey);
+        if(NRF_SUCCESS != err_code)
+        {
+          NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
+        }
                       
 
     }
@@ -785,7 +875,7 @@ uint32_t ble_gfp_init(ble_gfp_t * p_gfp, ble_gfp_init_t const * p_gfp_init)
  NRF_LOG_INFO("ble_gfp_init################################\n");    // Initialize the service structure.
     p_gfp->data_handler = p_gfp_init->data_handler;
     
-
+testqueue();
     /**@snippet [Adding proprietary Service to the SoftDevice] 
     // Add a custom base UUID.
     err_code = sd_ble_uuid_vs_add(&gfp_base_uuid, &p_gfp->uuid_type);
