@@ -145,44 +145,44 @@ static void testqueue()
 {
  ret_code_t err_code;
     account_key_t data1;
-data1.account_key[0]=11;
-     err_code = nrf_queue_push(&account_key_queue,&data1);
-    APP_ERROR_CHECK(err_code);
+//data1.account_key[0]=03;
+//     err_code = nrf_queue_push(&account_key_queue,&data1);
+//    APP_ERROR_CHECK(err_code);
 
-        account_key_t data2;
-data2.account_key[0]=22;
-     err_code = nrf_queue_push(&account_key_queue,&data2);
-    APP_ERROR_CHECK(err_code);
+//        account_key_t data2;
+//data2.account_key[0]=22;
+//     err_code = nrf_queue_push(&account_key_queue,&data2);
+//    APP_ERROR_CHECK(err_code);
 
-            account_key_t data3;
-data3.account_key[0]=33;
-     err_code = nrf_queue_push(&account_key_queue,&data3);
-    APP_ERROR_CHECK(err_code);
+//            account_key_t data3;
+//data3.account_key[0]=33;
+//     err_code = nrf_queue_push(&account_key_queue,&data3);
+//    APP_ERROR_CHECK(err_code);
 
-            account_key_t data4;
-data4.account_key[0]=44;
-     err_code = nrf_queue_push(&account_key_queue,&data4);
-    APP_ERROR_CHECK(err_code);
+//            account_key_t data4;
+//data4.account_key[0]=44;
+//     err_code = nrf_queue_push(&account_key_queue,&data4);
+//    APP_ERROR_CHECK(err_code);
 
-            account_key_t data5;
-data5.account_key[0]=55;
-     err_code = nrf_queue_push(&account_key_queue,&data5);
-    APP_ERROR_CHECK(err_code);
+//            account_key_t data5;
+//data5.account_key[0]=55;
+//     err_code = nrf_queue_push(&account_key_queue,&data5);
+//    APP_ERROR_CHECK(err_code);
 
-                account_key_t data7;
-data7.account_key[0]=88;
-     err_code = nrf_queue_push(&account_key_queue,&data7);
-    APP_ERROR_CHECK(err_code);
+//                account_key_t data7;
+//data7.account_key[0]=88;
+//     err_code = nrf_queue_push(&account_key_queue,&data7);
+//    APP_ERROR_CHECK(err_code);
 
-                    account_key_t data8;
-data8.account_key[0]=99;
-     err_code = nrf_queue_push(&account_key_queue,&data8);
-    APP_ERROR_CHECK(err_code);
+//                    account_key_t data8;
+//data8.account_key[0]=99;
+//     err_code = nrf_queue_push(&account_key_queue,&data8);
+//    APP_ERROR_CHECK(err_code);
 
+NRF_LOG_INFO("queue used %d ",nrf_queue_utilization_get(&account_key_queue));
+account_key_t data6[5]={99};
 
-account_key_t data6[5];
-
-        err_code = nrf_queue_read(&account_key_queue,data6,5);
+        err_code = nrf_queue_read(&account_key_queue,data6,4);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
@@ -364,7 +364,9 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
     ble_gfp_evt_t                 evt;
 //    ble_gfp_client_context_t    * p_client;
     ble_gatts_evt_write_t const * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
-
+    //size_t accountkey_num = 0;
+    //account_key_t accountkeys_array[ACCOUNT_KEYS_COUNT]={0};
+    //uint8_t i;
 
     //err_code = blcm_link_ctx_get(p_gfp->p_link_ctx_storage,
     //                             p_ble_evt->evt.gatts_evt.conn_handle,
@@ -465,6 +467,9 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         //uint8_t req_enc[FP_CRYPTO_AES128_BLOCK_LEN];
         //uint8_t public_key[FP_CRYPTO_ECDH_PUBLIC_KEY_LEN];
         uint8_t ecdh_secret[FP_CRYPTO_ECDH_SHARED_KEY_LEN];
+        size_t accountkey_num = 0;
+        account_key_t accountkeys_array[ACCOUNT_KEYS_COUNT]={0};
+        uint8_t i;
         NRF_LOG_INFO("rev len %d\n",p_evt_write->len);
         //for(int i=0;i< p_evt_write->len;i++)
         //{
@@ -491,6 +496,11 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         fp_crypto_ecdh_shared_secret(ecdh_secret,raw_key_buffer,
                                       m_alice_raw_private_key);
 #endif
+
+
+      if(p_evt_write->len > FP_CRYPTO_ECDH_PUBLIC_KEY_LEN )
+      {  
+// have public key
         err_code = fp_crypto_ecdh_shared_secret(ecdh_secret,(p_evt_write->data)+FP_CRYPTO_AES128_BLOCK_LEN,
                                       anti_spoofing_priv_key);
         if(NRF_SUCCESS != err_code)
@@ -527,6 +537,27 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         {
           NRF_LOG_ERROR("nrf_crypto_hash_finalize err %x\n",err_code);
         }
+      }
+      else
+      {
+
+   // no public key
+        accountkey_num = nrf_queue_utilization_get(&account_key_queue);
+        if(accountkey_num > 0 )
+        {
+           err_code = nrf_queue_read(&account_key_queue,accountkeys_array,accountkey_num);
+           if(NRF_SUCCESS != err_code)
+           {
+             NRF_LOG_ERROR("nrf_queue_read err %x\n",err_code);
+           }
+        }
+        else
+        {
+           NRF_LOG_ERROR("no account key storage\n");
+
+        }
+        
+      }
         // NRF_LOG_INFO("keybase_pair_handles################################\n");
 
         nrf_crypto_aes_info_t const * p_ecb_info;
@@ -544,24 +575,50 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         }
 
         /* Set encryption and decryption key */
+    if(p_evt_write->len > FP_CRYPTO_ECDH_PUBLIC_KEY_LEN )
+      {  
+          err_code = nrf_crypto_aes_key_set(&ecb_decr_ctx, Anti_Spoofing_AES_Key);
+          if(NRF_SUCCESS != err_code)
+          {
+            NRF_LOG_ERROR("nrf_crypto_aes_key_set err %x\n",err_code);
+          }
 
-        err_code = nrf_crypto_aes_key_set(&ecb_decr_ctx, Anti_Spoofing_AES_Key);
-        if(NRF_SUCCESS != err_code)
-        {
-          NRF_LOG_ERROR("nrf_crypto_aes_key_set err %x\n",err_code);
-        }
-
-        /* Decrypt blocks */
-        len_out = sizeof(raw_req);
-        err_code = nrf_crypto_aes_finalize(&ecb_decr_ctx,
+          /* Decrypt blocks */
+          len_out = sizeof(raw_req);
+          err_code = nrf_crypto_aes_finalize(&ecb_decr_ctx,
                                       (uint8_t *)p_evt_write->data,
                                       FP_CRYPTO_AES128_BLOCK_LEN,
                                       (uint8_t *)raw_req,
                                       &len_out);
-        if(NRF_SUCCESS != err_code)
-        {
-          NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
-        }
+          if(NRF_SUCCESS != err_code)
+          {
+            NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
+          }
+       }
+       else
+       {// no public key
+          for (i=0 ;i < accountkey_num ;i++)
+          {
+              err_code = nrf_crypto_aes_key_set(&ecb_decr_ctx, accountkeys_array[i].account_key);
+              if(NRF_SUCCESS != err_code)
+              {
+                NRF_LOG_ERROR("nrf_crypto_aes_key_set err %x\n",err_code);
+              }
+
+              /* Decrypt blocks */
+              len_out = sizeof(raw_req);
+              err_code = nrf_crypto_aes_finalize(&ecb_decr_ctx,
+                                      (uint8_t *)p_evt_write->data,
+                                      FP_CRYPTO_AES128_BLOCK_LEN,
+                                      (uint8_t *)raw_req,
+                                      &len_out);
+              if(NRF_SUCCESS == err_code)
+              {
+                memcpy(Anti_Spoofing_AES_Key,accountkeys_array[i].account_key,FP_CRYPTO_AES128_BLOCK_LEN);
+                 NRF_LOG_INFO("aeskey found from accountkey\n");
+              }
+          }
+       }
 //NRF_LOG_ERROR("@@nrf_crypto_aes_finalize err %x\n",err_code);
         struct msg_kbp_write parsed_req;
         parsed_req.msg_type = raw_req[0];
@@ -777,6 +834,19 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         {
           NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
         }
+
+        account_key_t data;
+        for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
+        {
+          data.account_key[i] = raw_req_accountkey[i];
+        }
+        
+        err_code = nrf_queue_push(&account_key_queue,&data);
+        if(NRF_SUCCESS != err_code)
+        {
+          NRF_LOG_ERROR("nrf_queue_push err %x\n",err_code);
+        }
+
                       
 
     }
@@ -875,7 +945,7 @@ uint32_t ble_gfp_init(ble_gfp_t * p_gfp, ble_gfp_init_t const * p_gfp_init)
  NRF_LOG_INFO("ble_gfp_init################################\n");    // Initialize the service structure.
     p_gfp->data_handler = p_gfp_init->data_handler;
     
-testqueue();
+//testqueue();
     /**@snippet [Adding proprietary Service to the SoftDevice] 
     // Add a custom base UUID.
     err_code = sd_ble_uuid_vs_add(&gfp_base_uuid, &p_gfp->uuid_type);
