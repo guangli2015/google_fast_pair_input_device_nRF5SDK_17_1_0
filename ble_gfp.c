@@ -59,6 +59,9 @@
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
 #define ACCOUNT_KEYS_COUNT 5
+#define FP_ACCOUNT_KEY_LEN	16U
+
+#define FP_CRYPTO_SHA256_HASH_LEN		32U
 /** Length of ECDH public key (512 bits = 64 bytes). */
 #define FP_CRYPTO_ECDH_PUBLIC_KEY_LEN		64U
 /** Length of AES-128 block (128 bits = 16 bytes). */
@@ -99,6 +102,14 @@ enum fp_msg_type {
 
 	/* Action request. */
 	FP_MSG_ACTION_REQ               = 0x10,
+};
+
+enum fp_field_type {
+	FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION = 0b0000,
+	FP_FIELD_TYPE_SALT			 = 0b0001,
+	FP_FIELD_TYPE_HIDE_PAIRING_UI_INDICATION = 0b0010,
+	FP_FIELD_TYPE_SHOW_BATTERY_UI_INDICATION = 0b0011,
+	FP_FIELD_TYPE_HIDE_BATTERY_UI_INDICATION = 0b0100,
 };
 
 typedef struct  {
@@ -191,6 +202,16 @@ account_key_t data6[5]={99};
 
     
 }
+
+
+static size_t fp_crypto_account_key_filter_size(size_t n)
+{
+	if (n == 0) {
+		return 0;
+	} else {
+		return 1.2 * n + 3;
+	}
+}
 static  void gfp_memcpy_swap(void *dst, const void *src, size_t length)
 {
 	uint8_t *pdst = (uint8_t *)dst;
@@ -205,7 +226,11 @@ static  void gfp_memcpy_swap(void *dst, const void *src, size_t length)
 		*pdst++ = *psrc--;
 	}
 }
-
+static  void sys_put_be16(uint16_t val, uint8_t dst[2])
+{
+	dst[0] = val >> 8;
+	dst[1] = val;
+}
 //crypto
 static void print_array(uint8_t const * p_string, size_t size)
 {
@@ -1077,6 +1102,108 @@ NRF_LOG_INFO("6\n");
     return NRF_SUCCESS;
 }
 
+
+
+
+static int fp_crypto_account_key_filter(uint8_t *out, const struct fp_account_key *account_key_list,
+				 size_t n, uint16_t salt, const uint8_t *battery_info)
+{
+  size_t s = fp_crypto_account_key_filter_size(n);
+  uint8_t v[FP_ACCOUNT_KEY_LEN + sizeof(salt)];
+  uint8_t h[FP_CRYPTO_SHA256_HASH_LEN];
+  uint32_t x;
+  uint32_t m;
+  ret_code_t            err_code;
+
+  memset(out, 0, s);
+  for (size_t i = 0; i < n; i++) 
+  {
+    size_t pos = 0;
+
+    memcpy(v, account_key_list[i].key, FP_ACCOUNT_KEY_LEN);
+    pos += FP_ACCOUNT_KEY_LEN;
+
+    sys_put_be16(salt, &v[pos]);
+    pos += sizeof(salt);
+
+    nrf_crypto_hash_context_t   hash_context;
+        //uint8_t  Anti_Spoofing_AES_Key[NRF_CRYPTO_HASH_SIZE_SHA256];
+    size_t digest_len = NRF_CRYPTO_HASH_SIZE_SHA256;
+
+           // Initialize the hash context
+    err_code = nrf_crypto_hash_init(&hash_context, &g_nrf_crypto_hash_sha256_info);
+    if(NRF_SUCCESS != err_code)
+    {
+      NRF_LOG_ERROR("nrf_crypto_hash_init err %x\n",err_code);
+    }
+
+    // Run the update function (this can be run multiples of time if the data is accessible
+    // in smaller chunks, e.g. when received on-air.
+    err_code = nrf_crypto_hash_update(&hash_context, v, pos);
+    if(NRF_SUCCESS != err_code)
+    {
+      NRF_LOG_ERROR("nrf_crypto_hash_update err %x\n",err_code);
+    }
+
+    // Run the finalize when all data has been fed to the update function.
+    // this gives you the result
+    err_code = nrf_crypto_hash_finalize(&hash_context, h, &digest_len);
+    if(NRF_SUCCESS != err_code)
+    {
+      NRF_LOG_ERROR("nrf_crypto_hash_finalize err %x\n",err_code);
+    }
+
+		
+
+		for (size_t j = 0; j < FP_CRYPTO_SHA256_HASH_LEN / sizeof(x); j++) {
+			x = sys_get_be32(&h[j * sizeof(x)]);
+			m = x % (s * __CHAR_BIT__);
+			WRITE_BIT(out[m / __CHAR_BIT__], m % __CHAR_BIT__, 1);
+		}
+  }
+	return 0;
+}
+
+int fp_adv_data_fill_non_discoverable()
+{
+  uint8_t adv_data_nondis[26]={0};
+  service_data_nondis[0]=0x00;//version_and_flags
+  size_t account_key_cnt = nrf_queue_utilization_get(&account_key_queue);
+  if (account_key_cnt == 0) 
+  {
+    service_data_nondis[1]=0x00;//version_and_flags
+  } 
+  else 
+  {
+		struct fp_account_key ak[CONFIG_BT_FAST_PAIR_STORAGE_ACCOUNT_KEY_MAX];
+		size_t ak_filter_size = fp_crypto_account_key_filter_size(account_key_cnt);
+		uint16_t salt;
+		int err;
+
+		err = sys_csrand_get(&salt, sizeof(salt));
+		if (err) {
+			return err;
+		}
+    service_data_nondis = (ak_filter_size) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
+		
+
+		err = fp_crypto_account_key_filter(net_buf_simple_add(buf, ak_filter_size), ak,
+						   account_key_cnt, salt,
+						   add_battery_info ? battery_info : NULL);
+		if (err) {
+			return err;
+		}
+
+		net_buf_simple_add_u8(buf, ENCODE_FIELD_LEN_TYPE(sizeof(salt), FP_FIELD_TYPE_SALT));
+		net_buf_simple_add_be16(buf, salt);
+	}
+
+	if (add_battery_info) {
+		net_buf_simple_add_mem(buf, battery_info, sizeof(battery_info));
+	}
+
+	return 0;
+}
 #if 0
 uint32_t ble_gfp_data_send(ble_gfp_t * p_gfp,
                            uint8_t   * p_data,
