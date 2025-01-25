@@ -86,6 +86,11 @@ NRF_LOG_MODULE_REGISTER();
 
 #define GFP_SERVICE_UUID  0xFE2C
 
+#define BIT(n)  (1UL << (n))
+
+#define WRITE_BIT(var, bit, set) \
+	((var) = (set) ? ((var) | BIT(bit)) : ((var) & ~BIT(bit)))
+
 /* Fast Pair message type. */
 enum fp_msg_type {
 	/* Key-based Pairing Request. */
@@ -108,8 +113,6 @@ enum fp_field_type {
 	FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION = 0b0000,
 	FP_FIELD_TYPE_SALT			 = 0b0001,
 	FP_FIELD_TYPE_HIDE_PAIRING_UI_INDICATION = 0b0010,
-	FP_FIELD_TYPE_SHOW_BATTERY_UI_INDICATION = 0b0011,
-	FP_FIELD_TYPE_HIDE_BATTERY_UI_INDICATION = 0b0100,
 };
 
 typedef struct  {
@@ -226,12 +229,18 @@ static  void gfp_memcpy_swap(void *dst, const void *src, size_t length)
 		*pdst++ = *psrc--;
 	}
 }
-static  void sys_put_be16(uint16_t val, uint8_t dst[2])
+static inline void sys_put_be16(uint16_t val, uint8_t dst[2])
 {
 	dst[0] = val >> 8;
 	dst[1] = val;
 }
-//crypto
+
+static inline uint32_t sys_get_be32(const uint8_t src[4])
+{
+	return ((uint32_t)sys_get_be16(&src[0]) << 16) | sys_get_be16(&src[2]);
+}
+
+//crypto ********************************************************************
 static void print_array(uint8_t const * p_string, size_t size)
 {
     #if NRF_LOG_ENABLED
@@ -1105,38 +1114,41 @@ NRF_LOG_INFO("6\n");
 
 
 
-static int fp_crypto_account_key_filter(uint8_t *out, const struct fp_account_key *account_key_list,
-				 size_t n, uint16_t salt, const uint8_t *battery_info)
+static int fp_crypto_account_key_filter(uint8_t *out, size_t n, uint16_t salt)
 {
   size_t s = fp_crypto_account_key_filter_size(n);
   uint8_t v[FP_ACCOUNT_KEY_LEN + sizeof(salt)];
+  account_key_t accountkey_array[5]={0};
   uint8_t h[FP_CRYPTO_SHA256_HASH_LEN];
   uint32_t x;
   uint32_t m;
   ret_code_t            err_code;
+
+  err_code = nrf_queue_read(&account_key_queue,accountkey_array,n);
+  if(NRF_SUCCESS != err_code)
+  {
+     NRF_LOG_ERROR("nrf_queue_read err %x\n",err_code);
+  }
 
   memset(out, 0, s);
   for (size_t i = 0; i < n; i++) 
   {
     size_t pos = 0;
 
-    memcpy(v, account_key_list[i].key, FP_ACCOUNT_KEY_LEN);
+    memcpy(v, accountkey_array[i].account_key, FP_ACCOUNT_KEY_LEN);
     pos += FP_ACCOUNT_KEY_LEN;
 
     sys_put_be16(salt, &v[pos]);
     pos += sizeof(salt);
 
     nrf_crypto_hash_context_t   hash_context;
-        //uint8_t  Anti_Spoofing_AES_Key[NRF_CRYPTO_HASH_SIZE_SHA256];
     size_t digest_len = NRF_CRYPTO_HASH_SIZE_SHA256;
-
-           // Initialize the hash context
+    // Initialize the hash context
     err_code = nrf_crypto_hash_init(&hash_context, &g_nrf_crypto_hash_sha256_info);
     if(NRF_SUCCESS != err_code)
     {
       NRF_LOG_ERROR("nrf_crypto_hash_init err %x\n",err_code);
     }
-
     // Run the update function (this can be run multiples of time if the data is accessible
     // in smaller chunks, e.g. when received on-air.
     err_code = nrf_crypto_hash_update(&hash_context, v, pos);
@@ -1153,56 +1165,55 @@ static int fp_crypto_account_key_filter(uint8_t *out, const struct fp_account_ke
       NRF_LOG_ERROR("nrf_crypto_hash_finalize err %x\n",err_code);
     }
 
-		
-
-		for (size_t j = 0; j < FP_CRYPTO_SHA256_HASH_LEN / sizeof(x); j++) {
-			x = sys_get_be32(&h[j * sizeof(x)]);
-			m = x % (s * __CHAR_BIT__);
-			WRITE_BIT(out[m / __CHAR_BIT__], m % __CHAR_BIT__, 1);
-		}
+    for (size_t j = 0; j < FP_CRYPTO_SHA256_HASH_LEN / sizeof(x); j++) 
+    {
+      x = sys_get_be32(&h[j * sizeof(x)]);
+      m = x % (s * 8);
+      WRITE_BIT(out[m / 8], m % 8, 1);
+    }
   }
-	return 0;
+  return 0;
 }
 
 int fp_adv_data_fill_non_discoverable()
 {
-  uint8_t adv_data_nondis[26]={0};
+  uint8_t service_data_nondis[26]={0};
   service_data_nondis[0]=0x00;//version_and_flags
   size_t account_key_cnt = nrf_queue_utilization_get(&account_key_queue);
+  ret_code_t            err_code;
   if (account_key_cnt == 0) 
   {
-    service_data_nondis[1]=0x00;//version_and_flags
+    service_data_nondis[1]=0x00;//empty_account_key_list
   } 
   else 
   {
-		struct fp_account_key ak[CONFIG_BT_FAST_PAIR_STORAGE_ACCOUNT_KEY_MAX];
-		size_t ak_filter_size = fp_crypto_account_key_filter_size(account_key_cnt);
-		uint16_t salt;
-		int err;
-
-		err = sys_csrand_get(&salt, sizeof(salt));
-		if (err) {
-			return err;
-		}
-    service_data_nondis = (ak_filter_size) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
 		
+    size_t ak_filter_size = fp_crypto_account_key_filter_size(account_key_cnt);
+    uint8_t m_random_vector[2];
+    uint16_t salt;
 
-		err = fp_crypto_account_key_filter(net_buf_simple_add(buf, ak_filter_size), ak,
-						   account_key_cnt, salt,
-						   add_battery_info ? battery_info : NULL);
-		if (err) {
-			return err;
-		}
 
-		net_buf_simple_add_u8(buf, ENCODE_FIELD_LEN_TYPE(sizeof(salt), FP_FIELD_TYPE_SALT));
-		net_buf_simple_add_be16(buf, salt);
-	}
+    err_code = nrf_crypto_rng_vector_generate(m_random_vector, 2);
+    if(NRF_SUCCESS != err_code)
+    {
+        NRF_LOG_ERROR("nrf_crypto_hash_update err %x\n",err_code);
+    }
+    salt = (m_random_vector[0] << 8) | m_random_vector[1];
 
-	if (add_battery_info) {
-		net_buf_simple_add_mem(buf, battery_info, sizeof(battery_info));
-	}
+    service_data_nondis[1] = (ak_filter_size) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
+		
+    err_code = fp_crypto_account_key_filter(&(service_data_nondis+2),
+						   account_key_cnt, salt);
+    if(NRF_SUCCESS != err_code)
+    {
+        NRF_LOG_ERROR("nrf_crypto_hash_update err %x\n",err_code);
+    }
+    service_data_nondis[2+ak_filter_size] = (sizeof(salt) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
+    sys_put_be16(salt, &service_data_nondis[2+ak_filter_size+1]);
 
-	return 0;
+  }
+
+  return 0;
 }
 #if 0
 uint32_t ble_gfp_data_send(ble_gfp_t * p_gfp,
