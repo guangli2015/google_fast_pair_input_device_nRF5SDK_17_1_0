@@ -1200,9 +1200,9 @@ int fp_adv_data_fill_non_discoverable()
     }
     salt = (m_random_vector[0] << 8) | m_random_vector[1];
 
-    service_data_nondis[1] = (ak_filter_size) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
+    service_data_nondis[1] = ((ak_filter_size) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
 		
-    err_code = fp_crypto_account_key_filter(&(service_data_nondis+2),
+    err_code = fp_crypto_account_key_filter((service_data_nondis+2),
 						   account_key_cnt, salt);
     if(NRF_SUCCESS != err_code)
     {

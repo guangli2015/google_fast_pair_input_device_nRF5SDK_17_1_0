@@ -270,8 +270,8 @@ static uint8_t m_caps_off_key_scan_str[] = /**< Key pattern to be sent when the 
     0x09,       /* Key f */
 };
 
-
-
+bool key_pairing_success = false;
+static void advertising_init_nondiscoverable(void);
 static void on_hids_evt(ble_hids_t * p_hids, ble_hids_evt_t * p_evt);
 
 /**@brief Callback function for asserts in the SoftDevice.
@@ -353,11 +353,24 @@ static void advertising_start(bool erase_bonds)
     }
     else
     {
-        whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
 
-        ret_code_t ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-         NRF_LOG_INFO("ble_advertising_start %x\n",ret);
-        APP_ERROR_CHECK(ret);
+      //  if (key_pairing_success == false)
+        {
+         // whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
+
+          ret_code_t ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+          NRF_LOG_INFO("ble_advertising_start %x\n",ret);
+          APP_ERROR_CHECK(ret);
+        }
+        //else
+        //{
+        //  advertising_init_nondiscoverable();  
+        //  whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
+
+        //  ret_code_t ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+        //  NRF_LOG_INFO("ble_advertising_start nondis %x\n",ret);
+        //  APP_ERROR_CHECK(ret);
+        //}
     }
 }
 
@@ -401,16 +414,16 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
             advertising_start(false);
             break;
 
-        case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
-            if (     p_evt->params.peer_data_update_succeeded.flash_changed
-                 && (p_evt->params.peer_data_update_succeeded.data_id == PM_PEER_DATA_ID_BONDING))
-            {
-                NRF_LOG_INFO("New Bond, add the peer to the whitelist if possible");
-                // Note: You should check on what kind of white list policy your application should use.
+        //case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
+        //    if (     p_evt->params.peer_data_update_succeeded.flash_changed
+        //         && (p_evt->params.peer_data_update_succeeded.data_id == PM_PEER_DATA_ID_BONDING))
+        //    {
+        //        NRF_LOG_INFO("New Bond, add the peer to the whitelist if possible");
+        //        // Note: You should check on what kind of white list policy your application should use.
 
-                whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
-            }
-            break;
+        //        whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
+        //    }
+        //    break;
 
         default:
             break;
@@ -1263,52 +1276,52 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             sleep_mode_enter();
             break;
 
-        case BLE_ADV_EVT_WHITELIST_REQUEST:
-        {
-            ble_gap_addr_t whitelist_addrs[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
-            ble_gap_irk_t  whitelist_irks[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
-            uint32_t       addr_cnt = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
-            uint32_t       irk_cnt  = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
+        //case BLE_ADV_EVT_WHITELIST_REQUEST:
+        //{
+        //    ble_gap_addr_t whitelist_addrs[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
+        //    ble_gap_irk_t  whitelist_irks[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
+        //    uint32_t       addr_cnt = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
+        //    uint32_t       irk_cnt  = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
 
-            err_code = pm_whitelist_get(whitelist_addrs, &addr_cnt,
-                                        whitelist_irks,  &irk_cnt);
-            APP_ERROR_CHECK(err_code);
-            NRF_LOG_DEBUG("pm_whitelist_get returns %d addr in whitelist and %d irk whitelist",
-                          addr_cnt, irk_cnt);
+        //    err_code = pm_whitelist_get(whitelist_addrs, &addr_cnt,
+        //                                whitelist_irks,  &irk_cnt);
+        //    APP_ERROR_CHECK(err_code);
+        //    NRF_LOG_DEBUG("pm_whitelist_get returns %d addr in whitelist and %d irk whitelist",
+        //                  addr_cnt, irk_cnt);
 
-            // Set the correct identities list (no excluding peers with no Central Address Resolution).
-            identities_set(PM_PEER_ID_LIST_SKIP_NO_IRK);
+        //    // Set the correct identities list (no excluding peers with no Central Address Resolution).
+        //    identities_set(PM_PEER_ID_LIST_SKIP_NO_IRK);
 
-            // Apply the whitelist.
-            err_code = ble_advertising_whitelist_reply(&m_advertising,
-                                                       whitelist_addrs,
-                                                       addr_cnt,
-                                                       whitelist_irks,
-                                                       irk_cnt);
-            APP_ERROR_CHECK(err_code);
-        } break; //BLE_ADV_EVT_WHITELIST_REQUEST
+        //    // Apply the whitelist.
+        //    err_code = ble_advertising_whitelist_reply(&m_advertising,
+        //                                               whitelist_addrs,
+        //                                               addr_cnt,
+        //                                               whitelist_irks,
+        //                                               irk_cnt);
+        //    APP_ERROR_CHECK(err_code);
+        //} break; //BLE_ADV_EVT_WHITELIST_REQUEST
 
-        case BLE_ADV_EVT_PEER_ADDR_REQUEST:
-        {
-            pm_peer_data_bonding_t peer_bonding_data;
+        //case BLE_ADV_EVT_PEER_ADDR_REQUEST:
+        //{
+        //    pm_peer_data_bonding_t peer_bonding_data;
 
-            // Only Give peer address if we have a handle to the bonded peer.
-            if (m_peer_id != PM_PEER_ID_INVALID)
-            {
-                err_code = pm_peer_data_bonding_load(m_peer_id, &peer_bonding_data);
-                if (err_code != NRF_ERROR_NOT_FOUND)
-                {
-                    APP_ERROR_CHECK(err_code);
+        //    // Only Give peer address if we have a handle to the bonded peer.
+        //    if (m_peer_id != PM_PEER_ID_INVALID)
+        //    {
+        //        err_code = pm_peer_data_bonding_load(m_peer_id, &peer_bonding_data);
+        //        if (err_code != NRF_ERROR_NOT_FOUND)
+        //        {
+        //            APP_ERROR_CHECK(err_code);
 
-                    // Manipulate identities to exclude peers with no Central Address Resolution.
-                    identities_set(PM_PEER_ID_LIST_SKIP_ALL);
+        //            // Manipulate identities to exclude peers with no Central Address Resolution.
+        //            identities_set(PM_PEER_ID_LIST_SKIP_ALL);
 
-                    ble_gap_addr_t * p_peer_addr = &(peer_bonding_data.peer_ble_id.id_addr_info);
-                    err_code = ble_advertising_peer_addr_reply(&m_advertising, p_peer_addr);
-                    APP_ERROR_CHECK(err_code);
-                }
-            }
-        } break; //BLE_ADV_EVT_PEER_ADDR_REQUEST
+        //            ble_gap_addr_t * p_peer_addr = &(peer_bonding_data.peer_ble_id.id_addr_info);
+        //            err_code = ble_advertising_peer_addr_reply(&m_advertising, p_peer_addr);
+        //            APP_ERROR_CHECK(err_code);
+        //        }
+        //    }
+        //} break; //BLE_ADV_EVT_PEER_ADDR_REQUEST
 
         default:
             break;
@@ -1349,7 +1362,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // disabling alert 3. signal - used for capslock ON
             err_code = bsp_indication_set(BSP_INDICATE_ALERT_OFF);
             APP_ERROR_CHECK(err_code);
-
+ //advertising_start(false);
             break; // BLE_GAP_EVT_DISCONNECTED
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
@@ -1509,11 +1522,12 @@ static void bsp_event_handler(bsp_event_t event)
           case BSP_EVENT_KEY_1:
          
            NRF_LOG_INFO("BSP_EVENT_KEY_1\n");
-              err_code = sd_ble_gap_auth_key_reply(m_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, NULL);
-        if (err_code != NRF_SUCCESS) 
-        {
-          NRF_LOG_ERROR("Failed to confirm passkey (err %d)\n", err_code);
-        }
+           key_pairing_success = true;
+        //      err_code = sd_ble_gap_auth_key_reply(m_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, NULL);
+        //if (err_code != NRF_SUCCESS) 
+        //{
+        //  NRF_LOG_ERROR("Failed to confirm passkey (err %d)\n", err_code);
+        //}
           break; // BSP_EVENT_KEY_1
 
         default:
@@ -1591,17 +1605,18 @@ static void advertising_init(void)
     init.srdata.name_type          = BLE_ADVDATA_FULL_NAME;
     init.srdata.include_appearance = true;
 
-    init.config.ble_adv_whitelist_enabled          = true;
-    init.config.ble_adv_directed_high_duty_enabled = true;
-    init.config.ble_adv_directed_enabled           = false;
-    init.config.ble_adv_directed_interval          = 0;
-    init.config.ble_adv_directed_timeout           = 0;
+    //init.config.ble_adv_whitelist_enabled          = true;
+    //init.config.ble_adv_directed_high_duty_enabled = true;
+    //init.config.ble_adv_directed_enabled           = false;
+    //init.config.ble_adv_directed_interval          = 0;
+    //init.config.ble_adv_directed_timeout           = 0;
+     init.config.ble_adv_on_disconnect_disabled = true;
     init.config.ble_adv_fast_enabled               = true;
     init.config.ble_adv_fast_interval              = APP_ADV_FAST_INTERVAL;
     init.config.ble_adv_fast_timeout               = APP_ADV_FAST_DURATION;
-    init.config.ble_adv_slow_enabled               = true;
-    init.config.ble_adv_slow_interval              = APP_ADV_SLOW_INTERVAL;
-    init.config.ble_adv_slow_timeout               = APP_ADV_SLOW_DURATION;
+    //init.config.ble_adv_slow_enabled               = true;
+    //init.config.ble_adv_slow_interval              = APP_ADV_SLOW_INTERVAL;
+    //init.config.ble_adv_slow_timeout               = APP_ADV_SLOW_DURATION;
 
     init.evt_handler   = on_adv_evt;
     init.error_handler = ble_advertising_error_handler;
@@ -1612,7 +1627,59 @@ static void advertising_init(void)
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
 
+static void advertising_init_nondiscoverable(void)
+{
+    uint32_t               err_code;
+    uint8_t                adv_flags;
+    ble_advertising_init_t init;
+    uint8_t service_data[] = {0xff, 0xff, 0xff,0xff}; // Example service data
+    int8_t tx_power = 0xf2;
+  NRF_LOG_INFO("advertising_init_nondiscoverable\n");
+    memset(&init, 0, sizeof(init));
 
+    //adv_flags                            = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    //init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+    //init.advdata.include_appearance      = true;
+    //init.advdata.flags                   = adv_flags;
+    //init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+    //init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+    init.advdata.name_type               = BLE_ADVDATA_NO_NAME;
+    init.advdata.include_appearance      = false;
+    init.advdata.flags                   = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+//    init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+//    init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+
+    ble_advdata_service_data_t service_data_fp;
+    service_data_fp.service_uuid=0xFE2C;
+    service_data_fp.data.p_data=service_data;
+    service_data_fp.data.size=4;
+    init.advdata.p_service_data_array=&service_data_fp;
+    init.advdata.service_data_count=1;
+    init.advdata.p_tx_power_level=&tx_power;
+
+    init.srdata.name_type          = BLE_ADVDATA_NO_NAME;
+    init.srdata.include_appearance = false;
+
+    //init.config.ble_adv_whitelist_enabled          = true;
+    //init.config.ble_adv_directed_high_duty_enabled = true;
+    //init.config.ble_adv_directed_enabled           = false;
+    //init.config.ble_adv_directed_interval          = 0;
+    //init.config.ble_adv_directed_timeout           = 0;
+    init.config.ble_adv_fast_enabled               = true;
+    init.config.ble_adv_fast_interval              = APP_ADV_FAST_INTERVAL;
+    init.config.ble_adv_fast_timeout               = APP_ADV_FAST_DURATION;
+    //init.config.ble_adv_slow_enabled               = true;
+    //init.config.ble_adv_slow_interval              = APP_ADV_SLOW_INTERVAL;
+    //init.config.ble_adv_slow_timeout               = APP_ADV_SLOW_DURATION;
+
+    init.evt_handler   = on_adv_evt;
+    init.error_handler = ble_advertising_error_handler;
+
+    err_code = ble_advertising_init(&m_advertising, &init);
+    APP_ERROR_CHECK(err_code);
+
+    ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
+}
 /**@brief Function for initializing buttons and leds.
  *
  * @param[out] p_erase_bonds  Will be true if the clear bonding button was pressed to wake the application up.
