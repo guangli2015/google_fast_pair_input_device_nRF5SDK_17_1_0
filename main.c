@@ -1362,7 +1362,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // disabling alert 3. signal - used for capslock ON
             err_code = bsp_indication_set(BSP_INDICATE_ALERT_OFF);
             APP_ERROR_CHECK(err_code);
- //advertising_start(false);
+            advertising_init_nondiscoverable();
+            advertising_start(false);
             break; // BLE_GAP_EVT_DISCONNECTED
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
@@ -1626,15 +1627,38 @@ static void advertising_init(void)
 
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
+static void print_array(uint8_t const * p_string, size_t size)
+{
+    #if NRF_LOG_ENABLED
+    size_t i;
+    NRF_LOG_RAW_INFO("    ");
+    for(i = 0; i < size; i++)
+    {
+        NRF_LOG_RAW_INFO("%02x ", p_string[i]);
+    }
+    #endif // NRF_LOG_ENABLED
+}
 
+
+static void print_hex(char const * p_msg, uint8_t const * p_data, size_t size)
+{
+    NRF_LOG_INFO(p_msg);
+    print_array(p_data, size);
+    NRF_LOG_RAW_INFO("\r\n");
+}
 static void advertising_init_nondiscoverable(void)
 {
     uint32_t               err_code;
     uint8_t                adv_flags;
     ble_advertising_init_t init;
-    uint8_t service_data[] = {0xff, 0xff, 0xff,0xff}; // Example service data
+    //uint8_t service_data[] = {0xff, 0xff, 0xff,0xff}; // Example service data
     int8_t tx_power = 0xf2;
+    uint8_t service_data[26] ={0}; 
+    size_t service_data_len = 0 ;
   NRF_LOG_INFO("advertising_init_nondiscoverable\n");
+   fp_adv_data_fill_non_discoverable(service_data , &service_data_len);
+   NRF_LOG_INFO("\n");
+    print_hex(" service_data: ", service_data, service_data_len);
     memset(&init, 0, sizeof(init));
 
     //adv_flags                            = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
@@ -1652,7 +1676,7 @@ static void advertising_init_nondiscoverable(void)
     ble_advdata_service_data_t service_data_fp;
     service_data_fp.service_uuid=0xFE2C;
     service_data_fp.data.p_data=service_data;
-    service_data_fp.data.size=4;
+    service_data_fp.data.size=service_data_len;
     init.advdata.p_service_data_array=&service_data_fp;
     init.advdata.service_data_count=1;
     init.advdata.p_tx_power_level=&tx_power;
@@ -1665,6 +1689,7 @@ static void advertising_init_nondiscoverable(void)
     //init.config.ble_adv_directed_enabled           = false;
     //init.config.ble_adv_directed_interval          = 0;
     //init.config.ble_adv_directed_timeout           = 0;
+    init.config.ble_adv_on_disconnect_disabled = true;
     init.config.ble_adv_fast_enabled               = true;
     init.config.ble_adv_fast_interval              = APP_ADV_FAST_INTERVAL;
     init.config.ble_adv_fast_timeout               = APP_ADV_FAST_DURATION;

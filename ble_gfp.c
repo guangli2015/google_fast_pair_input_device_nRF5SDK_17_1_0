@@ -234,6 +234,10 @@ static inline void sys_put_be16(uint16_t val, uint8_t dst[2])
 	dst[0] = val >> 8;
 	dst[1] = val;
 }
+static inline uint16_t sys_get_be16(const uint8_t src[2])
+{
+	return ((uint16_t)src[0] << 8) | src[1];
+}
 
 static inline uint32_t sys_get_be32(const uint8_t src[4])
 {
@@ -870,9 +874,15 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         }
 
         account_key_t data;
-        for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
+        //for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
+        //{
+        //  data.account_key[i] = raw_req_accountkey[i];
+        //}
+
+        uint8_t testacc[16]={0x4 , 0xa5 , 0x12 , 0x6e , 0xab , 0x49 , 0xb0 , 0x65 , 0xaa , 0x87 , 0xf3 , 0x59 , 0x86 , 0x75 , 0xb6 , 0xab};
+         for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
         {
-          data.account_key[i] = raw_req_accountkey[i];
+          data.account_key[i] = testacc[i];
         }
         
         err_code = nrf_queue_push(&account_key_queue,&data);
@@ -1175,20 +1185,23 @@ static int fp_crypto_account_key_filter(uint8_t *out, size_t n, uint16_t salt)
   return 0;
 }
 
-int fp_adv_data_fill_non_discoverable()
+int fp_adv_data_fill_non_discoverable(uint8_t * service_data_nondis , size_t  * plen)
 {
-  uint8_t service_data_nondis[26]={0};
+  //uint8_t service_data_nondis[26]={0};
   service_data_nondis[0]=0x00;//version_and_flags
   size_t account_key_cnt = nrf_queue_utilization_get(&account_key_queue);
+  size_t ak_filter_size = fp_crypto_account_key_filter_size(account_key_cnt);
   ret_code_t            err_code;
   if (account_key_cnt == 0) 
   {
     service_data_nondis[1]=0x00;//empty_account_key_list
+    *plen=2;
+    NRF_LOG_INFO("no accout key **\n");
   } 
   else 
   {
 		
-    size_t ak_filter_size = fp_crypto_account_key_filter_size(account_key_cnt);
+    
     uint8_t m_random_vector[2];
     uint16_t salt;
 
@@ -1208,10 +1221,12 @@ int fp_adv_data_fill_non_discoverable()
     {
         NRF_LOG_ERROR("nrf_crypto_hash_update err %x\n",err_code);
     }
-    service_data_nondis[2+ak_filter_size] = (sizeof(salt) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
+    service_data_nondis[2+ak_filter_size] = (sizeof(salt) << 4) | (FP_FIELD_TYPE_SALT);
     sys_put_be16(salt, &service_data_nondis[2+ak_filter_size+1]);
+    *plen=2+ak_filter_size+2+1;
 
   }
+   print_hex(" service_data_nondis: ", service_data_nondis, *plen);
 
   return 0;
 }

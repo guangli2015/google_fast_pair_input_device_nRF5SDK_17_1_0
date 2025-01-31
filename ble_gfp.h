@@ -219,7 +219,7 @@ uint32_t ble_gfp_data_send(ble_gfp_t * p_gfp,
                            uint16_t  * p_length,
                            uint16_t    conn_handle);
 
-
+int fp_adv_data_fill_non_discoverable(uint8_t * service_data_nondis , size_t  * plen);
 #ifdef __cplusplus
 }
 #endif
