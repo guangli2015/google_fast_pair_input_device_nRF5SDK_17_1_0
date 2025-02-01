@@ -874,16 +874,16 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         }
 
         account_key_t data;
-        //for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
-        //{
-        //  data.account_key[i] = raw_req_accountkey[i];
-        //}
-
-        uint8_t testacc[16]={0x4 , 0xa5 , 0x12 , 0x6e , 0xab , 0x49 , 0xb0 , 0x65 , 0xaa , 0x87 , 0xf3 , 0x59 , 0x86 , 0x75 , 0xb6 , 0xab};
-         for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
+        for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
         {
-          data.account_key[i] = testacc[i];
+          data.account_key[i] = raw_req_accountkey[i];
         }
+//test
+        //uint8_t testacc[16]={0x4 , 0xa6 , 0xef , 0x67 , 0x5a , 0xb8 , 0xac , 0x2d , 0xd4 , 0x67 , 0x4f , 0xe8 , 0xbf , 0x6c , 0x4f , 0xf5};
+        // for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
+        //{
+        //  data.account_key[i] = testacc[i];
+        //}
         
         err_code = nrf_queue_push(&account_key_queue,&data);
         if(NRF_SUCCESS != err_code)
@@ -1149,6 +1149,7 @@ static int fp_crypto_account_key_filter(uint8_t *out, size_t n, uint16_t salt)
     pos += FP_ACCOUNT_KEY_LEN;
 
     sys_put_be16(salt, &v[pos]);
+      NRF_LOG_INFO(" v[pos] %x v[pos+1] %x",v[pos],v[pos+1]); 
     pos += sizeof(salt);
 
     nrf_crypto_hash_context_t   hash_context;
@@ -1211,8 +1212,12 @@ int fp_adv_data_fill_non_discoverable(uint8_t * service_data_nondis , size_t  * 
     {
         NRF_LOG_ERROR("nrf_crypto_hash_update err %x\n",err_code);
     }
-    salt = (m_random_vector[0] << 8) | m_random_vector[1];
 
+    //test
+    //m_random_vector[0]=0x0c;
+    //m_random_vector[1]=0x6b;
+    salt = (m_random_vector[0] << 8) | m_random_vector[1];
+NRF_LOG_INFO("salt ** %x\n",salt);
     service_data_nondis[1] = ((ak_filter_size) << 4) | (FP_FIELD_TYPE_SHOW_PAIRING_UI_INDICATION);
 		
     err_code = fp_crypto_account_key_filter((service_data_nondis+2),
