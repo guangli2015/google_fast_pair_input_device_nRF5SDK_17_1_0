@@ -159,19 +159,19 @@ static void testqueue()
 {
  ret_code_t err_code;
     account_key_t data1;
-//data1.account_key[0]=03;
-//     err_code = nrf_queue_push(&account_key_queue,&data1);
-//    APP_ERROR_CHECK(err_code);
+data1.account_key[0]=03;
+     err_code = nrf_queue_push(&account_key_queue,&data1);
+    APP_ERROR_CHECK(err_code);
 
-//        account_key_t data2;
-//data2.account_key[0]=22;
-//     err_code = nrf_queue_push(&account_key_queue,&data2);
-//    APP_ERROR_CHECK(err_code);
+        account_key_t data2;
+data2.account_key[0]=22;
+     err_code = nrf_queue_push(&account_key_queue,&data2);
+    APP_ERROR_CHECK(err_code);
 
-//            account_key_t data3;
-//data3.account_key[0]=33;
-//     err_code = nrf_queue_push(&account_key_queue,&data3);
-//    APP_ERROR_CHECK(err_code);
+            account_key_t data3;
+data3.account_key[0]=33;
+     err_code = nrf_queue_push(&account_key_queue,&data3);
+    APP_ERROR_CHECK(err_code);
 
 //            account_key_t data4;
 //data4.account_key[0]=44;
@@ -192,16 +192,57 @@ static void testqueue()
 //data8.account_key[0]=99;
 //     err_code = nrf_queue_push(&account_key_queue,&data8);
 //    APP_ERROR_CHECK(err_code);
-
-NRF_LOG_INFO("queue used %d ",nrf_queue_utilization_get(&account_key_queue));
+    size_t count;
+ count= nrf_queue_utilization_get(&account_key_queue);
+NRF_LOG_INFO("\nqueue used %d ",count);
 account_key_t data6[5]={99};
 
-        err_code = nrf_queue_read(&account_key_queue,data6,4);
+        err_code = nrf_queue_read(&account_key_queue,data6,count);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
      NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
+      for (size_t i=0;i<count;i++)
+      {
+         err_code = nrf_queue_push(&account_key_queue,(data6+i));
+        APP_ERROR_CHECK(err_code);
+      }
+
+
+     count = nrf_queue_utilization_get(&account_key_queue);
+NRF_LOG_INFO("\nqueue used %d ",count);
+//account_key_t data6[5]={99};
+
+        err_code = nrf_queue_read(&account_key_queue,data6,count);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
+           for (size_t i=0;i<count;i++)
+      {
+         err_code = nrf_queue_push(&account_key_queue,(data6+i));
+        APP_ERROR_CHECK(err_code);
+      }
+
+
+      count= nrf_queue_utilization_get(&account_key_queue);
+NRF_LOG_INFO("\nqueue used %d ",count);
+//account_key_t data6[5]={99};
+
+   //     err_code = nrf_queue_read(&account_key_queue,data6,count);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
+     NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
+           for (size_t i=0;i<count;i++)
+      {
+         err_code = nrf_queue_push(&account_key_queue,(data6+i));
+        APP_ERROR_CHECK(err_code);
+      }
+
 
     
 }
@@ -588,6 +629,16 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
            {
              NRF_LOG_ERROR("nrf_queue_read err %x\n",err_code);
            }
+
+           for (size_t i=0;i<accountkey_num;i++)
+            {
+                  err_code = nrf_queue_push(&account_key_queue,(accountkeys_array+i));
+                  if(NRF_SUCCESS != err_code)
+                  {
+                      NRF_LOG_ERROR("nrf_queue_push err %x\n",err_code);
+                  }
+            }
+           
         }
         else
         {
@@ -1139,6 +1190,14 @@ static int fp_crypto_account_key_filter(uint8_t *out, size_t n, uint16_t salt)
   {
      NRF_LOG_ERROR("nrf_queue_read err %x\n",err_code);
   }
+   for (size_t i=0;i<n;i++)
+      {
+         err_code = nrf_queue_push(&account_key_queue,(accountkey_array+i));
+         if(NRF_SUCCESS != err_code)
+          {
+            NRF_LOG_ERROR("nrf_queue_push err %x\n",err_code);
+          }
+      }
 
   memset(out, 0, s);
   for (size_t i = 0; i < n; i++) 
