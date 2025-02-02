@@ -154,6 +154,7 @@ struct msg_seekers_passkey {
 };
 
 static uint8_t  Anti_Spoofing_AES_Key[NRF_CRYPTO_HASH_SIZE_SHA256];
+extern bool key_pairing_success;
 //function********************************************************************
 static void testqueue()
 {
@@ -538,17 +539,11 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
     }
     else if ((p_evt_write->handle == p_gfp->keybase_pair_handles.value_handle) )
     {
-        //evt.type                  = BLE_GFP_EVT_RX_DATA;
-        //evt.params.rx_data.p_data = p_evt_write->data;
-        //evt.params.rx_data.length = p_evt_write->len;
 
-        //p_gfp->data_handler(&evt);
-        //uint8_t req_enc[FP_CRYPTO_AES128_BLOCK_LEN];
-        //uint8_t public_key[FP_CRYPTO_ECDH_PUBLIC_KEY_LEN];
         uint8_t ecdh_secret[FP_CRYPTO_ECDH_SHARED_KEY_LEN];
         size_t accountkey_num = 0;
         account_key_t accountkeys_array[ACCOUNT_KEYS_COUNT]={0};
-        uint8_t i;
+        size_t i;
         NRF_LOG_INFO("rev len %d\n",p_evt_write->len);
         //for(int i=0;i< p_evt_write->len;i++)
         //{
@@ -682,6 +677,7 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
           if(NRF_SUCCESS != err_code)
           {
             NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
+            return;// public key decrypt fail
           }
        }
        else
@@ -704,8 +700,13 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
               if(NRF_SUCCESS == err_code)
               {
                 memcpy(Anti_Spoofing_AES_Key,accountkeys_array[i].account_key,FP_CRYPTO_AES128_BLOCK_LEN);
-                 NRF_LOG_INFO("aeskey found from accountkey\n");
+                break;
+                NRF_LOG_INFO("aeskey found from accountkey\n");
               }
+          }
+          if(i >= accountkey_num)
+          {
+            return;// no account keys can decrypt success
           }
        }
 //NRF_LOG_ERROR("@@nrf_crypto_aes_finalize err %x\n",err_code);
@@ -735,6 +736,7 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
 	default:
 		NRF_LOG_ERROR("Unexpected message type: 0x%x (Key-based Pairing)",
 			parsed_req.msg_type);
+                break;
 		
 	}
         NRF_LOG_INFO("requ:%x %x\n",parsed_req.msg_type,parsed_req.fp_flags);
@@ -794,12 +796,8 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
     }
     else if ((p_evt_write->handle == p_gfp->passkey_handles.value_handle) )
     {
-        //evt.type                  = BLE_GFP_EVT_RX_DATA;
-        //evt.params.rx_data.p_data = p_evt_write->data;
-        //evt.params.rx_data.length = p_evt_write->len;
 
-        //p_gfp->data_handler(&evt);
-         NRF_LOG_INFO("passkey_handles################################\n");
+        NRF_LOG_INFO("passkey_handles################################\n");
         nrf_crypto_aes_info_t const * p_ecb_info_passkey;
    
         nrf_crypto_aes_context_t      ecb_decr_ctx_passkey;
@@ -832,6 +830,8 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         if(NRF_SUCCESS != err_code)
         {
           NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
+          memset(Anti_Spoofing_AES_Key,0xff,NRF_CRYPTO_HASH_SIZE_SHA256);//drop the K
+          return;
         }
 
         struct msg_seekers_passkey parsed_req_passkey;
@@ -882,6 +882,7 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         {
           NRF_LOG_ERROR("sd_ble_gatts_hvx err %x\n",err_code);
         }
+        key_pairing_success = true;
         NRF_LOG_INFO("passkey_handles################################end\n");
                      
 
@@ -890,6 +891,10 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
     {
 
         NRF_LOG_INFO("account_key_handles################################\n");
+        if( false == key_pairing_success)
+        {
+          return ;
+        }
         nrf_crypto_aes_info_t const * p_ecb_info_accountkey;
    
         nrf_crypto_aes_context_t      ecb_decr_ctx_accountkey;
@@ -924,6 +929,11 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
           NRF_LOG_ERROR("nrf_crypto_aes_finalize err %x\n",err_code);
         }
 
+        if(0x04 != raw_req_accountkey[0])
+        {
+          return;
+        }
+
         account_key_t data;
         for(int i=0;i<FP_CRYPTO_AES128_BLOCK_LEN;i++)
         {
@@ -947,11 +957,7 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
     }
     else if ((p_evt_write->handle == p_gfp->addi_data_handles.value_handle) )
     {
-        //evt.type                  = BLE_GFP_EVT_RX_DATA;
-        //evt.params.rx_data.p_data = p_evt_write->data;
-        //evt.params.rx_data.length = p_evt_write->len;
 
-        //p_gfp->data_handler(&evt);
          NRF_LOG_INFO("addi_data_handles################################\n");
                       
 
@@ -1041,10 +1047,7 @@ uint32_t ble_gfp_init(ble_gfp_t * p_gfp, ble_gfp_init_t const * p_gfp_init)
     p_gfp->data_handler = p_gfp_init->data_handler;
     
 //testqueue();
-    /**@snippet [Adding proprietary Service to the SoftDevice] 
-    // Add a custom base UUID.
-    err_code = sd_ble_uuid_vs_add(&gfp_base_uuid, &p_gfp->uuid_type);
-    VERIFY_SUCCESS(err_code);*/
+
    // Add service
     BLE_UUID_BLE_ASSIGN(ble_uuid, GFP_SERVICE_UUID);
 
@@ -1294,45 +1297,5 @@ NRF_LOG_INFO("salt ** %x\n",salt);
 
   return 0;
 }
-#if 0
-uint32_t ble_gfp_data_send(ble_gfp_t * p_gfp,
-                           uint8_t   * p_data,
-                           uint16_t  * p_length,
-                           uint16_t    conn_handle)
-{
-    ret_code_t                 err_code;
-    ble_gatts_hvx_params_t     hvx_params;
-    ble_gfp_client_context_t * p_client;
 
-    VERIFY_PARAM_NOT_NULL(p_gfp);
-
-    err_code = blcm_link_ctx_get(p_gfp->p_link_ctx_storage, conn_handle, (void *) &p_client);
-    VERIFY_SUCCESS(err_code);
-
-    if ((conn_handle == BLE_CONN_HANDLE_INVALID) || (p_client == NULL))
-    {
-        return NRF_ERROR_NOT_FOUND;
-    }
-
-    if (!p_client->is_notification_enabled)
-    {
-        return NRF_ERROR_INVALID_STATE;
-    }
-
-    if (*p_length > BLE_GFP_MAX_DATA_LEN)
-    {
-        return NRF_ERROR_INVALID_PARAM;
-    }
-
-    memset(&hvx_params, 0, sizeof(hvx_params));
-
-    hvx_params.handle = p_gfp->tx_handles.value_handle;
-    hvx_params.p_data = p_data;
-    hvx_params.p_len  = p_length;
-    hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
-
-    return sd_ble_gatts_hvx(conn_handle, &hvx_params);
-}
-
-#endif
 

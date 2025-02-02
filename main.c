@@ -353,24 +353,9 @@ static void advertising_start(bool erase_bonds)
     }
     else
     {
-
-      //  if (key_pairing_success == false)
-        {
-         // whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
-
           ret_code_t ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
           NRF_LOG_INFO("ble_advertising_start %x\n",ret);
           APP_ERROR_CHECK(ret);
-        }
-        //else
-        //{
-        //  advertising_init_nondiscoverable();  
-        //  whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
-
-        //  ret_code_t ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-        //  NRF_LOG_INFO("ble_advertising_start nondis %x\n",ret);
-        //  APP_ERROR_CHECK(ret);
-        //}
     }
 }
 
@@ -413,17 +398,6 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
         case PM_EVT_PEERS_DELETE_SUCCEEDED:
             advertising_start(false);
             break;
-
-        //case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
-        //    if (     p_evt->params.peer_data_update_succeeded.flash_changed
-        //         && (p_evt->params.peer_data_update_succeeded.data_id == PM_PEER_DATA_ID_BONDING))
-        //    {
-        //        NRF_LOG_INFO("New Bond, add the peer to the whitelist if possible");
-        //        // Note: You should check on what kind of white list policy your application should use.
-
-        //        whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
-        //    }
-        //    break;
 
         default:
             break;
@@ -1362,7 +1336,10 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // disabling alert 3. signal - used for capslock ON
             err_code = bsp_indication_set(BSP_INDICATE_ALERT_OFF);
             APP_ERROR_CHECK(err_code);
-            advertising_init_nondiscoverable();
+            if(true == key_pairing_success)
+            {
+              advertising_init_nondiscoverable();
+            }
             advertising_start(false);
             break; // BLE_GAP_EVT_DISCONNECTED
 
@@ -1520,15 +1497,8 @@ static void bsp_event_handler(bsp_event_t event)
             }
             break;
          
-          case BSP_EVENT_KEY_1:
-         
+          case BSP_EVENT_KEY_1:  
            NRF_LOG_INFO("BSP_EVENT_KEY_1\n");
-           key_pairing_success = true;
-        //      err_code = sd_ble_gap_auth_key_reply(m_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, NULL);
-        //if (err_code != NRF_SUCCESS) 
-        //{
-        //  NRF_LOG_ERROR("Failed to confirm passkey (err %d)\n", err_code);
-        //}
           break; // BSP_EVENT_KEY_1
 
         default:
