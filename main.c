@@ -229,7 +229,7 @@ BLE_BAS_DEF(m_bas);                                                 /**< Structu
 NRF_BLE_GATT_DEF(m_gatt);                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
-
+uint8_t dis_passkey[PASSKEY_LENGTH + 1];
 static bool              m_in_boot_mode = false;                    /**< Current protocol mode. */
 static uint16_t          m_conn_handle  = BLE_CONN_HANDLE_INVALID;  /**< Handle of the current connection. */
 static sensorsim_cfg_t   m_battery_sim_cfg;                         /**< Battery Level sensor simulator configuration. */
@@ -1382,11 +1382,11 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GAP_EVT_PASSKEY_DISPLAY:
         {
-            char passkey[PASSKEY_LENGTH + 1];
-            memcpy(passkey, p_ble_evt->evt.gap_evt.params.passkey_display.passkey, PASSKEY_LENGTH);
-            passkey[PASSKEY_LENGTH] = 0;
+            //char passkey[PASSKEY_LENGTH + 1];
+            memcpy(dis_passkey, p_ble_evt->evt.gap_evt.params.passkey_display.passkey, PASSKEY_LENGTH);
+            dis_passkey[PASSKEY_LENGTH] = 0;
 
-            NRF_LOG_INFO("Passkey: %s", nrf_log_push(passkey));
+            NRF_LOG_INFO("Passkey: %s", nrf_log_push(dis_passkey));
         } break;
         
         case BLE_GAP_EVT_AUTH_KEY_REQUEST:

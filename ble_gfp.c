@@ -91,6 +91,8 @@ NRF_LOG_MODULE_REGISTER();
 #define WRITE_BIT(var, bit, set) \
 	((var) = (set) ? ((var) | BIT(bit)) : ((var) & ~BIT(bit)))
 
+
+
 /* Fast Pair message type. */
 enum fp_msg_type {
 	/* Key-based Pairing Request. */
@@ -155,99 +157,8 @@ struct msg_seekers_passkey {
 
 static uint8_t  Anti_Spoofing_AES_Key[NRF_CRYPTO_HASH_SIZE_SHA256];
 extern bool key_pairing_success;
+extern uint8_t dis_passkey[6 + 1];
 //function********************************************************************
-static void testqueue()
-{
- ret_code_t err_code;
-    account_key_t data1;
-data1.account_key[0]=03;
-     err_code = nrf_queue_push(&account_key_queue,&data1);
-    APP_ERROR_CHECK(err_code);
-
-        account_key_t data2;
-data2.account_key[0]=22;
-     err_code = nrf_queue_push(&account_key_queue,&data2);
-    APP_ERROR_CHECK(err_code);
-
-            account_key_t data3;
-data3.account_key[0]=33;
-     err_code = nrf_queue_push(&account_key_queue,&data3);
-    APP_ERROR_CHECK(err_code);
-
-//            account_key_t data4;
-//data4.account_key[0]=44;
-//     err_code = nrf_queue_push(&account_key_queue,&data4);
-//    APP_ERROR_CHECK(err_code);
-
-//            account_key_t data5;
-//data5.account_key[0]=55;
-//     err_code = nrf_queue_push(&account_key_queue,&data5);
-//    APP_ERROR_CHECK(err_code);
-
-//                account_key_t data7;
-//data7.account_key[0]=88;
-//     err_code = nrf_queue_push(&account_key_queue,&data7);
-//    APP_ERROR_CHECK(err_code);
-
-//                    account_key_t data8;
-//data8.account_key[0]=99;
-//     err_code = nrf_queue_push(&account_key_queue,&data8);
-//    APP_ERROR_CHECK(err_code);
-    size_t count;
- count= nrf_queue_utilization_get(&account_key_queue);
-NRF_LOG_INFO("\nqueue used %d ",count);
-account_key_t data6[5]={99};
-
-        err_code = nrf_queue_read(&account_key_queue,data6,count);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
-      for (size_t i=0;i<count;i++)
-      {
-         err_code = nrf_queue_push(&account_key_queue,(data6+i));
-        APP_ERROR_CHECK(err_code);
-      }
-
-
-     count = nrf_queue_utilization_get(&account_key_queue);
-NRF_LOG_INFO("\nqueue used %d ",count);
-//account_key_t data6[5]={99};
-
-        err_code = nrf_queue_read(&account_key_queue,data6,count);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
-           for (size_t i=0;i<count;i++)
-      {
-         err_code = nrf_queue_push(&account_key_queue,(data6+i));
-        APP_ERROR_CHECK(err_code);
-      }
-
-
-      count= nrf_queue_utilization_get(&account_key_queue);
-NRF_LOG_INFO("\nqueue used %d ",count);
-//account_key_t data6[5]={99};
-
-   //     err_code = nrf_queue_read(&account_key_queue,data6,count);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[0].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[1].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[2].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[3].account_key[0],err_code);
-     NRF_LOG_INFO("data6 %d err_code %d ",data6[4].account_key[0],err_code);
-           for (size_t i=0;i<count;i++)
-      {
-         err_code = nrf_queue_push(&account_key_queue,(data6+i));
-        APP_ERROR_CHECK(err_code);
-      }
-
-
-    
-}
-
 
 static size_t fp_crypto_account_key_filter_size(size_t n)
 {
@@ -407,27 +318,6 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
            //NRF_LOG_INFO(" 0x%x ,",p_evt_write->data[i]);
            
         //}
-#if 0
-             uint8_t raw_key_buffer[]={
-
-0x36, 0xAC, 0x68, 0x2C, 0x50, 0x82, 0x15, 0x66, 0x8F, 0xBE, 0xFE, 0x24,
-0x7D, 0x01, 0xD5, 0xEB, 0x96, 0xE6, 0x31, 0x8E, 0x85, 0x5B, 0x2D, 0x64,
-0xB5, 0x19, 0x5D, 0x38, 0xEE, 0x7E, 0x37, 0xBE, 0x18, 0x38, 0xC0, 0xB9,
-0x48, 0xC3, 0xF7, 0x55, 0x20, 0xE0, 0x7E, 0x70, 0xF0, 0x72, 0x91, 0x41,
-0x9A, 0xCE, 0x2D, 0x28, 0x14, 0x3C, 0x5A, 0xDB, 0x2D, 0xBD, 0x98, 0xEE,
-0x3C, 0x8E, 0x4F, 0xBF
-    };
-      uint8_t m_alice_raw_private_key[] =
-{
-
-0x02, 0xB4, 0x37, 0xB0, 0xED, 0xD6, 0xBB, 0xD4, 0x29, 0x06, 0x4A, 0x4E,
-0x52, 0x9F, 0xCB, 0xF1, 0xC4, 0x8D, 0x0D, 0x62, 0x49, 0x24, 0xD5, 0x92,
-0x27, 0x4B, 0x7E, 0xD8, 0x11, 0x93, 0xD7, 0x63
-};
-        fp_crypto_ecdh_shared_secret(ecdh_secret,raw_key_buffer,
-                                      m_alice_raw_private_key);
-#endif
-
 
       if(p_evt_write->len > FP_CRYPTO_ECDH_PUBLIC_KEY_LEN )
       {  
@@ -694,12 +584,25 @@ static void on_write(ble_gfp_t * p_gfp, ble_evt_t const * p_ble_evt)
         struct msg_seekers_passkey parsed_req_passkey;
         parsed_req_passkey.msg_type = raw_req_passkey[0];
         parsed_req_passkey.passkey  = (raw_req_passkey[1] << 16) | (raw_req_passkey[2] << 8) | raw_req_passkey[3];
+        uint32_t dis_pass_result = 0;
 
-        err_code = sd_ble_gap_auth_key_reply(p_ble_evt->evt.gatts_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, NULL);
-        if (err_code != NRF_SUCCESS) 
+        for (size_t i = 0; i < 6; i++) 
         {
-          NRF_LOG_ERROR("Failed to confirm passkey (err %d)\n", err_code);
+          dis_pass_result = dis_pass_result * 10 + (dis_passkey[i]-0x30);
         }
+
+         NRF_LOG_INFO("raw req passkey %x %x %x %x\n",raw_req_passkey[1],raw_req_passkey[2],raw_req_passkey[3],parsed_req_passkey.passkey);
+         NRF_LOG_INFO("dis_pass_result %x\n",dis_pass_result);
+
+         if(parsed_req_passkey.passkey == dis_pass_result)
+         {
+
+            err_code = sd_ble_gap_auth_key_reply(p_ble_evt->evt.gatts_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, NULL);
+            if (err_code != NRF_SUCCESS) 
+            {
+              NRF_LOG_ERROR("Failed to confirm passkey (err %d)\n", err_code);
+            }
+         }
 
         // resp
          uint8_t rsp_passkey[FP_CRYPTO_AES128_BLOCK_LEN];
@@ -869,7 +772,7 @@ uint32_t ble_gfp_init(ble_gfp_t * p_gfp, ble_gfp_init_t const * p_gfp_init)
  NRF_LOG_INFO("ble_gfp_init################################\n");    // Initialize the service structure.
     p_gfp->data_handler = p_gfp_init->data_handler;
     
-//testqueue();
+   //testqueue();
 
    // Add service
     BLE_UUID_BLE_ASSIGN(ble_uuid, GFP_SERVICE_UUID);
