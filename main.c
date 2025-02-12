@@ -1553,12 +1553,7 @@ static void advertising_init(void)
 
     memset(&init, 0, sizeof(init));
 
-    //adv_flags                            = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-    //init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    //init.advdata.include_appearance      = true;
-    //init.advdata.flags                   = adv_flags;
-    //init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-    //init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+
     init.advdata.name_type               = BLE_ADVDATA_NO_NAME;
     init.advdata.include_appearance      = false;
     init.advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
@@ -1576,18 +1571,12 @@ static void advertising_init(void)
     init.srdata.name_type          = BLE_ADVDATA_FULL_NAME;
     init.srdata.include_appearance = true;
 
-    //init.config.ble_adv_whitelist_enabled          = true;
-    //init.config.ble_adv_directed_high_duty_enabled = true;
-    //init.config.ble_adv_directed_enabled           = false;
-    //init.config.ble_adv_directed_interval          = 0;
-    //init.config.ble_adv_directed_timeout           = 0;
+
      init.config.ble_adv_on_disconnect_disabled = true;
     init.config.ble_adv_fast_enabled               = true;
     init.config.ble_adv_fast_interval              = APP_ADV_FAST_INTERVAL;
     init.config.ble_adv_fast_timeout               = APP_ADV_FAST_DURATION;
-    //init.config.ble_adv_slow_enabled               = true;
-    //init.config.ble_adv_slow_interval              = APP_ADV_SLOW_INTERVAL;
-    //init.config.ble_adv_slow_timeout               = APP_ADV_SLOW_DURATION;
+
 
     init.evt_handler   = on_adv_evt;
     init.error_handler = ble_advertising_error_handler;
@@ -1631,17 +1620,11 @@ static void advertising_init_nondiscoverable(void)
     print_hex(" service_data: ", service_data, service_data_len);
     memset(&init, 0, sizeof(init));
 
-    //adv_flags                            = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-    //init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    //init.advdata.include_appearance      = true;
-    //init.advdata.flags                   = adv_flags;
-    //init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-    //init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+ 
     init.advdata.name_type               = BLE_ADVDATA_NO_NAME;
     init.advdata.include_appearance      = false;
     init.advdata.flags                   = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
-//    init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-//    init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+
 
     ble_advdata_service_data_t service_data_fp;
     service_data_fp.service_uuid=0xFE2C;
@@ -1654,18 +1637,12 @@ static void advertising_init_nondiscoverable(void)
     init.srdata.name_type          = BLE_ADVDATA_NO_NAME;
     init.srdata.include_appearance = false;
 
-    //init.config.ble_adv_whitelist_enabled          = true;
-    //init.config.ble_adv_directed_high_duty_enabled = true;
-    //init.config.ble_adv_directed_enabled           = false;
-    //init.config.ble_adv_directed_interval          = 0;
-    //init.config.ble_adv_directed_timeout           = 0;
+
     init.config.ble_adv_on_disconnect_disabled = true;
     init.config.ble_adv_fast_enabled               = true;
     init.config.ble_adv_fast_interval              = APP_ADV_FAST_INTERVAL;
     init.config.ble_adv_fast_timeout               = APP_ADV_FAST_DURATION;
-    //init.config.ble_adv_slow_enabled               = true;
-    //init.config.ble_adv_slow_interval              = APP_ADV_SLOW_INTERVAL;
-    //init.config.ble_adv_slow_timeout               = APP_ADV_SLOW_DURATION;
+
 
     init.evt_handler   = on_adv_evt;
     init.error_handler = ble_advertising_error_handler;
@@ -1756,7 +1733,7 @@ int main(void)
     peer_manager_init();
 
     // Start execution.
-    NRF_LOG_INFO("HID Keyboard example started.");
+    NRF_LOG_INFO("google fast pair input device example started.");
     timers_start();
     advertising_start(erase_bonds);
 
